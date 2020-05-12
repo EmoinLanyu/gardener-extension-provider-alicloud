@@ -46,6 +46,11 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					{
 						Name:    "zone1",
 						Workers: "10.250.3.0/24",
+						NatGateway: &apisalicloud.NatGatewayConfig{
+							IPAddresses: []string{
+								"10.0.0.1",
+							},
+						},
 					},
 				},
 			},
@@ -159,6 +164,35 @@ var _ = Describe("InfrastructureConfig validation", func() {
 					"Detail": Equal("must be valid canonical CIDR"),
 				}))
 			})
+
+			It("should forbid ipAddresses length more than one", func() {
+				infrastructureConfig.Networks.Zones[0].NatGateway.IPAddresses = []string{
+					"10.0.0.1",
+					"10.0.0.2",
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				Expect(errorList).To(HaveLen(1))
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("networks.zones[0].natGateway.ipAddresses"),
+					"Detail": Equal("currently can only specify one eip"),
+				}))
+			})
+
+			It("should forbid invalid specified ip address", func() {
+				infrastructureConfig.Networks.Zones[0].NatGateway.IPAddresses = []string{
+					"300.10.2.1",
+				}
+
+				errorList := ValidateInfrastructureConfig(infrastructureConfig, &nodes, &pods, &services)
+				Expect(errorList).To(HaveLen(1))
+				Expect(errorList).To(ConsistOfFields(Fields{
+					"Type":   Equal(field.ErrorTypeInvalid),
+					"Field":  Equal("networks.zones[0].natGateway.ipAddresses[0]"),
+					"Detail": Equal("specified eip is not valid"),
+				}))
+			})
 		})
 	})
 
@@ -167,7 +201,7 @@ var _ = Describe("InfrastructureConfig validation", func() {
 			Expect(ValidateInfrastructureConfigUpdate(infrastructureConfig, infrastructureConfig)).To(BeEmpty())
 		})
 
-		It("should forbid changing the network section", func() {
+		It("should forbid changing the VPC section", func() {
 			newInfrastructureConfig := infrastructureConfig.DeepCopy()
 			newCIDR := "1.2.3.4/5"
 			newInfrastructureConfig.Networks.VPC.CIDR = &newCIDR
@@ -178,6 +212,50 @@ var _ = Describe("InfrastructureConfig validation", func() {
 				"Type":  Equal(field.ErrorTypeInvalid),
 				"Field": Equal("networks.vpc"),
 			}))))
+		})
+
+		It("should forbid adding more than one eips", func() {
+			newInfrastructureConfig := infrastructureConfig.DeepCopy()
+			newInfrastructureConfig.Networks.Zones[0].NatGateway.IPAddresses = []string{
+				"10.0.0.1",
+				"10.0.0.2",
+			}
+
+			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+			Expect(errorList).To(HaveLen(1))
+			Expect(errorList).To(ConsistOfFields(Fields{
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("networks.zones[0].natGateway.ipAddresses"),
+				"Detail": Equal("currently can only specify one eip"),
+			}))
+		})
+
+		It("should forbid updating nat gateway with wrong eips", func() {
+			newInfrastructureConfig := infrastructureConfig.DeepCopy()
+			newInfrastructureConfig.Networks.Zones[0].NatGateway.IPAddresses = []string{
+				"302.1.1.1",
+			}
+
+			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+			Expect(errorList).To(HaveLen(1))
+			Expect(errorList).To(ConsistOfFields(Fields{
+				"Type":   Equal(field.ErrorTypeInvalid),
+				"Field":  Equal("networks.zones[0].natGateway.ipAddresses[0]"),
+				"Detail": Equal("specified eip is not valid"),
+			}))
+		})
+
+		It("should allow updating nat gateway eips", func() {
+			newInfrastructureConfig := infrastructureConfig.DeepCopy()
+			newInfrastructureConfig.Networks.Zones[0].NatGateway.IPAddresses = []string{
+				"102.1.1.1",
+			}
+
+			errorList := ValidateInfrastructureConfigUpdate(infrastructureConfig, newInfrastructureConfig)
+
+			Expect(errorList).To(BeEmpty())
 		})
 	})
 })

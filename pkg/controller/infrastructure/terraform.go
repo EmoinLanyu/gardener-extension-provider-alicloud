@@ -64,12 +64,25 @@ func (terraformOps) ComputeChartValues(
 		if workersCIDR == "" {
 			workersCIDR = zone.Worker
 		}
-		zones = append(zones, map[string]interface{}{
+
+		z := map[string]interface{}{
 			"name": zone.Name,
 			"cidr": map[string]interface{}{
 				"workers": string(workersCIDR),
 			},
-		})
+		}
+
+		if zone.NatGateway != nil {
+			ipAddresses := make([]string, 0, len(zone.NatGateway.IPAddresses))
+			ipAddresses = append(ipAddresses, zone.NatGateway.IPAddresses...)
+
+			natGateway := make(map[string]interface{})
+			natGateway["ipAddresses"] = ipAddresses
+
+			z["natGateway"] = natGateway
+		}
+
+		zones = append(zones, z)
 	}
 
 	return map[string]interface{}{

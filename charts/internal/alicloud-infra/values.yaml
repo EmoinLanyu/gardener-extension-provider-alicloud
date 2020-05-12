@@ -19,6 +19,9 @@ zones:
 - name: cn-beijing-a
   cidr:
     workers: 10.250.0.0/19
+  natGateway:
+    ipAddresses:
+    - 10.11.12.13
 - name: cn-beijing-b
   cidr:
     workers: 10.250.32.0/19

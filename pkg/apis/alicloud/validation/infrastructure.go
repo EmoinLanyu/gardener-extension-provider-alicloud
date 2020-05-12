@@ -16,6 +16,7 @@ package validation
 
 import (
 	apisalicloud "github.com/gardener/gardener-extension-provider-alicloud/pkg/apis/alicloud"
+	"net"
 
 	cidrvalidation "github.com/gardener/gardener/pkg/utils/validation/cidr"
 	apivalidation "k8s.io/apimachinery/pkg/api/validation"
@@ -66,6 +67,8 @@ func ValidateInfrastructureConfig(infra *apisalicloud.InfrastructureConfig, node
 			allErrs = append(allErrs, cidrvalidation.ValidateCIDRIsCanonical(workerPath, zone.Workers)...)
 			workerCIDRs = append(workerCIDRs, cidrvalidation.NewCIDR(zone.Workers, workerPath))
 		}
+
+		allErrs = append(allErrs, ValidateNatGatewayConfig(zone.NatGateway, networksPath.Child("zones").Index(i).Child("natGateway").Child("ipAddresses"))...)
 	}
 
 	allErrs = append(allErrs, cidrvalidation.ValidateCIDRParse(cidrs...)...)
@@ -97,8 +100,50 @@ func ValidateInfrastructureConfig(infra *apisalicloud.InfrastructureConfig, node
 func ValidateInfrastructureConfigUpdate(oldConfig, newConfig *apisalicloud.InfrastructureConfig) field.ErrorList {
 	allErrs := field.ErrorList{}
 
+	var (
+		newZonesWithoutNatGatewayConfig = make([]apisalicloud.Zone, 0, len(newConfig.Networks.Zones))
+		oldZonesWithoutNatGatewayConfig = make([]apisalicloud.Zone, 0, len(oldConfig.Networks.Zones))
+
+		networksPath = field.NewPath("networks")
+	)
+
+	for i, zone := range newConfig.Networks.Zones {
+		newZonesWithoutNatGatewayConfig = append(newZonesWithoutNatGatewayConfig, apisalicloud.Zone{
+			Name:    zone.Name,
+			Worker:  zone.Worker,
+			Workers: zone.Workers,
+		})
+
+		allErrs = append(allErrs, ValidateNatGatewayConfig(zone.NatGateway, networksPath.Child("zones").Index(i).Child("natGateway").Child("ipAddresses"))...)
+	}
+
+	for i, zone := range oldConfig.Networks.Zones {
+		oldZonesWithoutNatGatewayConfig = append(oldZonesWithoutNatGatewayConfig, apisalicloud.Zone{
+			Name:    zone.Name,
+			Worker:  zone.Worker,
+			Workers: zone.Workers,
+		})
+
+		allErrs = append(allErrs, ValidateNatGatewayConfig(zone.NatGateway, networksPath.Child("zones").Index(i).Child("natGateway").Child("ipAddresses"))...)
+	}
+
 	allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.VPC, oldConfig.Networks.VPC, field.NewPath("networks").Child("vpc"))...)
-	allErrs = append(allErrs, apivalidation.ValidateImmutableField(newConfig.Networks.Zones, oldConfig.Networks.Zones, field.NewPath("networks").Child("zones"))...)
+	allErrs = append(allErrs, apivalidation.ValidateImmutableField(newZonesWithoutNatGatewayConfig, oldZonesWithoutNatGatewayConfig, field.NewPath("networks").Child("zones"))...)
+
+	return allErrs
+}
+
+func ValidateNatGatewayConfig(natGateway *apisalicloud.NatGatewayConfig, fldPath *field.Path) field.ErrorList {
+	allErrs := field.ErrorList{}
+
+	if natGateway != nil && natGateway.IPAddresses != nil {
+		if len(natGateway.IPAddresses) > 1 {
+			allErrs = append(allErrs, field.Invalid(fldPath, natGateway.IPAddresses, "currently can only specify one eip"))
+		}
+		if ipAddr := net.ParseIP(natGateway.IPAddresses[0]); ipAddr == nil {
+			allErrs = append(allErrs, field.Invalid(fldPath.Index(0), natGateway.IPAddresses[0], "specified eip is not valid"))
+		}
+	}
 
 	return allErrs
 }

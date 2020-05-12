@@ -33,6 +33,25 @@ resource "alicloud_vswitch" "vsw_z{{ $index }}" {
   availability_zone = "{{ required "zone.name is required" $zone.name }}"
 }
 
+{{ if $zone.natGateway }}
+{{ if $zone.natGateway.ipAddresses -}}
+// Use specified EIP
+data "alicloud_eip" "eip_natgw_ds{{ $index }}" {
+  ip_addresses = "[{{ index $zone.natGateway.ipAddresses 0 }}]"
+}
+
+resource "alicloud_eip_association" "eip_natgw_asso_z{{ $index }}" {
+  allocation_id = "${data.alicloud_eip.eip_natgw_ds{{ $index }}.eips.0.id}"
+  instance_id   = "{{ required "natGatewayID is required" $.Values.vpc.natGatewayID }}"
+}
+
+resource "alicloud_snat_entry" "snat_z{{ $index }}" {
+  snat_table_id     = "{{ required "snatTableID is required" $.Values.vpc.snatTableID }}"
+  source_vswitch_id = "${alicloud_vswitch.vsw_z{{ $index }}.id}"
+  snat_ip           = "${data.alicloud_eip.eip_natgw_ds{{ $index }}.eips.0.ip_address}"
+}
+{{- end }}
+{{ else }}
 // Create a new EIP.
 resource "alicloud_eip" "eip_natgw_z{{ $index }}" {
   name                 = "{{ required "clusterName is required" $.Values.clusterName }}-eip-natgw-z{{ $index }}"
@@ -51,13 +70,14 @@ resource "alicloud_snat_entry" "snat_z{{ $index }}" {
   source_vswitch_id = "${alicloud_vswitch.vsw_z{{ $index }}.id}"
   snat_ip           = "${alicloud_eip.eip_natgw_z{{ $index }}.ip_address}"
 }
+{{ end }}
 
 // Output
 output "{{ $.Values.outputKeys.vswitchNodesPrefix }}{{ $index }}" {
   value = "${alicloud_vswitch.vsw_z{{ $index }}.id}"
 }
 
-{{end}}
+{{ end }}
 // End of loop zones
 
 resource "alicloud_security_group" "sg" {

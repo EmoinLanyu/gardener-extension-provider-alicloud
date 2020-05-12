@@ -431,6 +431,35 @@ string
 </tr>
 </tbody>
 </table>
+<h3 id="alicloud.provider.extensions.gardener.cloud/v1alpha1.NatGatewayConfig">NatGatewayConfig
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#alicloud.provider.extensions.gardener.cloud/v1alpha1.Zone">Zone</a>)
+</p>
+<p>
+<p>NatGatewayConfig contains specified eips to bind nat gateway</p>
+</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ipAddresses</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
 <h3 id="alicloud.provider.extensions.gardener.cloud/v1alpha1.Networks">Networks
 </h3>
 <p>
@@ -772,6 +801,20 @@ string
 </td>
 <td>
 <p>Workers specifies the worker CIDR to use.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>natGateway</code></br>
+<em>
+<a href="#alicloud.provider.extensions.gardener.cloud/v1alpha1.NatGatewayConfig">
+NatGatewayConfig
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NatGatewayConfig specifies the eips to bind</p>
 </td>
 </tr>
 </tbody>

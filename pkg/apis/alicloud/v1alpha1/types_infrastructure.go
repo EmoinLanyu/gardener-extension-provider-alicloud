@@ -95,6 +95,14 @@ type Zone struct {
 	Worker string `json:"worker"`
 	// Workers specifies the worker CIDR to use.
 	Workers string `json:"workers"`
+	// NatGatewayConfig specifies the eips to bind
+	// +optional
+	NatGateway *NatGatewayConfig `json:"natGateway,omitempty"`
+}
+
+// NatGatewayConfig contains specified eips to bind nat gateway
+type NatGatewayConfig struct {
+	IPAddresses []string `json:"ipAddresses,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
